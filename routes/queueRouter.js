@@ -29,9 +29,11 @@ queueRouter.route('/')
     .delete((req, res, next) => {
         QueueModel.deleteMany({})
             .then((resp) => {
-                res.statusCode = 200;
-                res.setHeader("Content-Type", "application/json");
-                res.json(resp);
+                MappingModel.deleteMany({}).then(() => {
+                    res.statusCode = 200;
+                    res.setHeader("Content-Type", "application/json");
+                    res.json(resp);
+                }, (err) => next(err))
             }, (err) => next(err))
             .catch((err) => next(err));
     })
@@ -58,6 +60,18 @@ queueRouter.route('/:queueId')
                     }, (err) => next(err))
             }, (err) => next(err))
             .catch((err) => next(err));
+    })
+    .delete((req, res, next) => {
+        QueueModel.deleteOne({_id: req.params.queueId})
+        .then((resp) => {
+            MappingModel.deleteOne({queueId: req.params.queueId})
+            .then(() => {
+                res.statusCode = 200;
+                res.setHeader("Content-Type", "application/json");
+                res.json(resp);
+            }, (err) => next(err))
+        }, (err) => next(err))
+        .catch((err) => next(err));
     })
 
 queueRouter.route('/:queueId/pop')
@@ -102,32 +116,6 @@ queueRouter.route('/:queueId/pop')
                     })
             }, (err) => next(err))
             .catch((err) => next(err));
-    })
-
-queueRouter.route('/discord/bind')
-    .post((req, res, next) => {
-        MappingModel.findOne({ queueId: req.body.queueId })
-            .then((mapping) => {
-                if (mapping == null) {
-                    MappingModel.create({ queueId: req.body.queueId, discord_channel: req.body.channel });
-                } else {
-                    mapping.discord_channel = req.body.channel;
-                    mapping.save();
-                }
-            })
-            .then(() => {
-                QueueModel.findById(req.body.queueId)
-                    .then((queueObj) => {
-                        queueObj.discord_channel = req.body.channel;
-                        queueObj.save().
-                            then((queueObj) => {
-                                res.statusCode = 200;
-                                res.setHeader("Content-Type", "application/json");
-                                res.json(queueObj);
-                            }, (err) => next(err))
-                    }, (err) => next(err))
-                    .catch((err) => next(err));
-            })
     })
 
 module.exports = queueRouter;
