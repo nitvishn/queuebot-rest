@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 var QueueModel = require("../models/queueModel");
+const MappingModel = require('../models/mappingModel');
 
 const queueRouter = express.Router();
 
@@ -65,16 +66,68 @@ queueRouter.route('/:queueId/pop')
             .then((queueObj) => {
                 var queue = queueObj.queue;
                 var toPop = [];
-                for(var i = 0; i < queue.length; i++){
-                    if(queue[i].popped == 1){
-                        toPop.push()
+                var flag1 = false;
+                var flag2 = false;
+                for (var i = 0; i < queue.length; i++) {
+                    var item = queue[i]
+                    if (item.popped == 1) {
+                        toPop.push(item)
+                        item.popped = 2
+                        item.poppedTime2 = item.poppedTime2
+                    }
+                    if (!flag1 && !item.popped) {
+                        queueObj.poppedOnce = true;
+                        item.popped = 1;
+                        item.poppedTime1 = item.createdAt;
+                        queueObj.currentItem = item;
+                        toReturn = item;
+                        flag1 = true;
+                        continue;
+                    }
+                    if (flag1 && !item.popped) {
+                        flag2 = true;
+                        queueObj.unpoppedItemsExist = true;
+                        break;
                     }
                 }
-                res.statusCode = 200;
-                res.setHeader("Content-Type", "application/json");
-                res.json(queue);
+                if (!flag2) {
+                    queueObj.unpoppedItemsExist = false;
+                    queueObj.currentItem = null;
+                }
+                queueObj.save()
+                    .then((queueObj) => {
+                        res.statusCode = 200;
+                        res.setHeader("Content-Type", "application/json");
+                        res.json(queueObj);
+                    })
             }, (err) => next(err))
             .catch((err) => next(err));
+    })
+
+queueRouter.route('/discord/bind')
+    .post((req, res, next) => {
+        MappingModel.findOne({ queueId: req.body.queueId })
+            .then((mapping) => {
+                if (mapping == null) {
+                    MappingModel.create({ queueId: req.body.queueId, discord_channel: req.body.channel });
+                } else {
+                    mapping.discord_channel = req.body.channel;
+                    mapping.save();
+                }
+            })
+            .then(() => {
+                QueueModel.findById(req.body.queueId)
+                    .then((queueObj) => {
+                        queueObj.discord_channel = req.body.channel;
+                        queueObj.save().
+                            then((queueObj) => {
+                                res.statusCode = 200;
+                                res.setHeader("Content-Type", "application/json");
+                                res.json(queueObj);
+                            }, (err) => next(err))
+                    }, (err) => next(err))
+                    .catch((err) => next(err));
+            })
     })
 
 module.exports = queueRouter;

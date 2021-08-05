@@ -21,6 +21,14 @@ const itemSchema = new Schema({
     popped: {
         type: Number, 
         default: 0
+    },
+    poppedTime1: {
+        type: Date,
+        default: null
+    },
+    poppedTime2: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true
@@ -44,7 +52,7 @@ const queueSchema = new Schema({
         type: Boolean,
         default: true
     },
-    currentItem: itemSchema
+    currentItem: itemSchema,
 });
 
 var QueueModel = mongoose.model("Queue", queueSchema);
