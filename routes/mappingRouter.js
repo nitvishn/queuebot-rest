@@ -17,12 +17,12 @@ mappingRouter.route('/')
         MappingModel.findOne({ queueId: req.body.queueId })
             .then((mapping) => {
                 if (mapping == null) {
-                    MappingModel.create({ queueId: req.body.queueId, discord_channel: req.body.channel });
+                    MappingModel.create({ queueId: req.body.queueId, discord_channel: req.body.channel })
                 } else {
                     mapping.discord_channel = req.body.channel;
                     mapping.save();
                 }
-            })
+            }, (err) => next(err))
             .then(() => {
                 QueueModel.findById(req.body.queueId)
                     .then((queueObj) => {
@@ -35,7 +35,8 @@ mappingRouter.route('/')
                             }, (err) => next(err))
                     }, (err) => next(err))
                     .catch((err) => next(err));
-            })
+            }, (err) => next(err))
+            .catch((err) => next(err));
     })
     .delete((req, res, next) => {
         MappingModel.find({})

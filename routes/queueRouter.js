@@ -17,14 +17,41 @@ queueRouter.route('/')
             })
     })
     .post((req, res, next) => {
-        QueueModel.create(req.body)
-            .then((queue) => {
-                console.log("Queue created");
-                res.statusCode = 200;
-                res.setHeader("Content-Type", "application/json");
-                res.json(queue);
-            }, (err) => next(err))
-            .catch((err) => next(err));
+        if (req.body.discord_channel) {
+            QueueModel.findOne({ discord_channel: req.body.discord_channel })
+                .then((queue) => {
+                    if (queue) {
+                        MappingModel.deleteOne({ discord_channel: req.body.discord_channel })
+                            .then(() => {
+                                queue.discord_channel = null;
+                                queue.save();
+                            })
+                    }
+                })
+                .then(() => {
+                    QueueModel.create(req.body)
+                        .then((queue) => {
+                            MappingModel.create({ queueId: queue._id, discord_channel: queue.discord_channel })
+                                .then(() => {
+                                    console.log("Queue created");
+                                    res.statusCode = 200;
+                                    res.setHeader("Content-Type", "application/json");
+                                    res.json(queue);
+                                }, (err) => next(err))
+                        }, (err) => next(err))
+                        .catch((err) => next(err));
+                })
+        }
+        else {
+            QueueModel.create(req.body)
+                .then((queue) => {
+                    console.log("Queue created");
+                    res.statusCode = 200;
+                    res.setHeader("Content-Type", "application/json");
+                    res.json(queue);
+                }, (err) => next(err))
+                .catch((err) => next(err));
+        }
     })
     .delete((req, res, next) => {
         QueueModel.deleteMany({})
@@ -50,28 +77,29 @@ queueRouter.route('/:queueId')
     })
     .post((req, res, next) => {
         QueueModel.findById(req.params.queueId)
-            .then((queue) => {
-                queue.queue.push(req.body);
-                queue.save()
-                    .then((queue) => {
+            .then((queueObj) => {
+                queueObj.queue.push(req.body);
+                queueObj.unpoppedItemsExist = true;
+                queueObj.save()
+                    .then((queueObj) => {
                         res.statusCode = 200;
                         res.setHeader("Content-Type", "application/json");
-                        res.json(queue);
+                        res.json(queueObj);
                     }, (err) => next(err))
             }, (err) => next(err))
             .catch((err) => next(err));
     })
     .delete((req, res, next) => {
-        QueueModel.deleteOne({_id: req.params.queueId})
-        .then((resp) => {
-            MappingModel.deleteOne({queueId: req.params.queueId})
-            .then(() => {
-                res.statusCode = 200;
-                res.setHeader("Content-Type", "application/json");
-                res.json(resp);
+        QueueModel.deleteOne({ _id: req.params.queueId })
+            .then((resp) => {
+                MappingModel.deleteOne({ queueId: req.params.queueId })
+                    .then(() => {
+                        res.statusCode = 200;
+                        res.setHeader("Content-Type", "application/json");
+                        res.json(resp);
+                    }, (err) => next(err))
             }, (err) => next(err))
-        }, (err) => next(err))
-        .catch((err) => next(err));
+            .catch((err) => next(err));
     })
 
 queueRouter.route('/:queueId/pop')
@@ -87,7 +115,8 @@ queueRouter.route('/:queueId/pop')
                     if (item.popped == 1) {
                         toPop.push(item)
                         item.popped = 2
-                        item.poppedTime2 = item.poppedTime2
+                        item.poppedTime2 = item.poppedTime1
+                        queueObj.currentItem = null;
                     }
                     if (!flag1 && !item.popped) {
                         queueObj.poppedOnce = true;
@@ -106,7 +135,6 @@ queueRouter.route('/:queueId/pop')
                 }
                 if (!flag2) {
                     queueObj.unpoppedItemsExist = false;
-                    queueObj.currentItem = null;
                 }
                 queueObj.save()
                     .then((queueObj) => {
@@ -117,5 +145,27 @@ queueRouter.route('/:queueId/pop')
             }, (err) => next(err))
             .catch((err) => next(err));
     })
+
+queueRouter.route('/discord/:channelId')
+    .get((req, res, next) => {
+        MappingModel.findOne({ discord_channel: req.params.channelId })
+            .then((mapping) => {
+                if (mapping == null) {
+                    res.statusCode = 200;
+                    res.setHeader("Content-Type", "application/json");
+                    res.json(null);
+                }
+                else{
+                    QueueModel.findById(mapping.queueId)
+                        .then((queueObj) => {
+                            console.log("QueueObj:", queueObj);
+                            res.statusCode = 200;
+                            res.setHeader("Content-Type", "application/json");
+                            res.json(queueObj);
+                        })
+                }
+            }, (err) => next(err))
+            .catch((err) => next(err));
+    });
 
 module.exports = queueRouter;

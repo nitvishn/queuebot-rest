@@ -19,19 +19,21 @@ const itemSchema = new Schema({
         default: ""
     },
     popped: {
-        type: Number, 
+        type: Number,
         default: 0
     },
+    createdAt: Number,
+    updatedAt: Number,
     poppedTime1: {
-        type: Date,
+        type: Number,
         default: null
     },
     poppedTime2: {
-        type: Date,
+        type: Number,
         default: null
     }
 }, {
-    timestamps: true
+    timestamps: { currentTime: () => Math.floor(Date.now() / 1000) }
 })
 
 const queueSchema = new Schema({
@@ -50,7 +52,7 @@ const queueSchema = new Schema({
     },
     unpoppedItemsExist: {
         type: Boolean,
-        default: true
+        default: false
     },
     currentItem: itemSchema,
 });
