@@ -115,13 +115,14 @@ queueRouter.route('/:queueId/pop')
                     if (item.popped == 1) {
                         toPop.push(item)
                         item.popped = 2
-                        item.poppedTime2 = item.poppedTime1
+                        item.poppedTime2 = Math.round((new Date()).getTime() / 1000);
+                        console.log("Using unix time.")
                         queueObj.currentItem = null;
                     }
                     if (!flag1 && !item.popped) {
                         queueObj.poppedOnce = true;
                         item.popped = 1;
-                        item.poppedTime1 = item.createdAt;
+                        item.poppedTime1 = Math.round((new Date()).getTime() / 1000);
                         queueObj.currentItem = item;
                         toReturn = item;
                         flag1 = true;
